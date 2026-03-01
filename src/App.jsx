@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { FileText, Github, Linkedin, Mail, ExternalLink, ChevronRight, GraduationCap, Syringe, ClipboardList, Briefcase, ChevronDown } from 'lucide-react';
+import Copilot from './components/Copilot';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -465,7 +466,12 @@ const Dossier = () => {
 
         <footer className="mt-48 pt-12 border-t border-cream/10 flex flex-col md:flex-row justify-between items-center text-sm font-mono text-cream/40">
           <p>© {new Date().getFullYear()} {PROFILE.name}</p>
-          <p>Veterinary Medicine Portfolio</p>
+          <p
+            onClick={() => window.openCopilotLogin?.()}
+            className="cursor-pointer hover:text-clay transition-colors"
+          >
+            Veterinary Medicine Portfolio
+          </p>
         </footer>
       </div>
     </section>
@@ -481,6 +487,7 @@ function App() {
       <Philosophy />
       <Experience />
       <Dossier />
+      <Copilot />
     </main>
   );
 }
