@@ -83,7 +83,7 @@ def init_repo():
             print("Cloning fresh repo...")
             subprocess.run(["git", "clone", auth_url, str(REPO_DIR)], check=True)
             subprocess.run(["npm", "install"], cwd=REPO_DIR, check=True)
-            subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
+            subprocess.run(["npm", "run", "build", "--", "--base=./"], cwd=REPO_DIR, check=True)
         
         subprocess.run(["git", "config", "user.email", "copilot@antigravity.sys"], cwd=REPO_DIR, check=True)
         subprocess.run(["git", "config", "user.name", "On-Page Copilot"], cwd=REPO_DIR, check=True)
@@ -291,7 +291,7 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
             yield 'data: {"status": "Compiling native Vite application payload..."}\n\n'
             
             build_proc = await asyncio.create_subprocess_exec(
-                "npm", "run", "build",
+                "npm", "run", "build", "--", "--base=./",
                 cwd=REPO_DIR,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
@@ -329,7 +329,7 @@ async def revert_changes(_=Depends(verify_token)):
     try:
         subprocess.run(["git", "fetch", "origin"], cwd=REPO_DIR, check=True)
         subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=REPO_DIR, check=True)
-        subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
+        subprocess.run(["npm", "run", "build", "--", "--base=./"], cwd=REPO_DIR, check=True)
         return {"success": True, "message": "Successfully reverted the last preview."}
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=500, detail=f"Git revert failed: {e}")

@@ -14,7 +14,7 @@ RUN npm install -g @google/gemini-cli@0.29.7
 RUN git clone https://github.com/blakeaa827/emily-portfolio.git /opt/portfolio-repo && \
     cd /opt/portfolio-repo && \
     npm install && \
-    npm run build
+    npm run build -- --base=./
 
 # Set up Python backend
 WORKDIR /app
