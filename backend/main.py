@@ -66,16 +66,27 @@ def verify_token(authorization: Optional[str] = Header(None)):
 def init_repo():
     if not GITHUB_TOKEN:
         print("WARNING: No GITHUB_TOKEN set. Git pushing will fail.")
-        
-    if REPO_DIR.exists():
-        shutil.rmtree(REPO_DIR)
-        
+    
     auth_url = f"https://oauth2:{GITHUB_TOKEN}@{GITHUB_REPO}"
     
-    # Clone Repo
-    subprocess.run(["git", "clone", auth_url, str(REPO_DIR)], check=True)
+    if REPO_DIR.exists() and (REPO_DIR / ".git").exists():
+        # Repo was pre-cached during Docker build — preserve node_modules and dist
+        # Just re-auth the remote and pull latest
+        print("Using pre-cached repo, updating remote and pulling latest...")
+        subprocess.run(["git", "remote", "set-url", "origin", auth_url], cwd=REPO_DIR, check=True)
+        subprocess.run(["git", "fetch", "origin"], cwd=REPO_DIR, check=True)
+        subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=REPO_DIR, check=True)
+    else:
+        # No cached repo — full clone
+        if REPO_DIR.exists():
+            shutil.rmtree(REPO_DIR)
+        print("Cloning fresh repo...")
+        subprocess.run(["git", "clone", auth_url, str(REPO_DIR)], check=True)
+        # Install dependencies since there's no cache
+        subprocess.run(["npm", "install"], cwd=REPO_DIR, check=True)
+        subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
     
-    # Configure Git
+    # Configure Git identity
     subprocess.run(["git", "config", "user.email", "copilot@antigravity.sys"], cwd=REPO_DIR, check=True)
     subprocess.run(["git", "config", "user.name", "On-Page Copilot"], cwd=REPO_DIR, check=True)
 
