@@ -125,7 +125,9 @@ CURRENT SOURCE:
 {current_code}
 """
         env = os.environ.copy()
-        env["HOME"] = "/root" # Ensure Node resolves correctly
+        env["HOME"] = "/root" # Force Gemini Node.js to read from /root/.gemini/
+        env["GOOGLE_APPLICATION_CREDENTIALS"] = "/root/.gemini/oauth_creds.json"
+        
         tmp_sys = Path(f"/tmp/sys_{uuid.uuid4()}.md")
         tmp_sys.write_text(system_prompt)
         env["GEMINI_SYSTEM_MD"] = str(tmp_sys)
