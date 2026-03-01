@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import jwt
 from datetime import datetime, timedelta
@@ -80,8 +81,18 @@ async def startup_event():
         (gemini_home / "settings.json").write_text(os.environ["GEMINI_SETTINGS_JSON"])
         print("Successfully injected GEMINI_SETTINGS_JSON into container.")
 
-    # 2. Setup GitHub Repo
+    # 2. Setup GitHub Repo and Static Route
     init_repo()
+    
+    # 3. Ensure Node Modules exist for Vite builder
+    print("Installing Node dependencies...")
+    subprocess.run(["npm", "install"], cwd=REPO_DIR, check=True)
+    
+    # Pre-build to ensure /dist exists for StaticFiles mount
+    subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
+
+# Mount the live preview directory
+app.mount("/live-preview", StaticFiles(directory=str(REPO_DIR / "dist"), html=True), name="live-preview")
 
 # -----------------
 # Gemini Client
@@ -171,8 +182,15 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
     client = GeminiClient()
     try:
         new_code = await client.generate_code(req.prompt, current_code)
-        return {"code": new_code}
+        app_jsx_path.write_text(new_code)
+        
+        # Build the dynamic preview
+        subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
+        
+        return {"success": True, "previewUrl": "/live-preview/"}
     except Exception as e:
+        # Rollback the file if build fails
+        subprocess.run(["git", "checkout", "src/App.jsx"], cwd=REPO_DIR)
         raise HTTPException(status_code=500, detail=str(e))
 
 class PublishRequest(BaseModel):
@@ -204,9 +222,10 @@ async def revert_changes(_=Depends(verify_token)):
     try:
         subprocess.run(["git", "fetch", "origin"], cwd=REPO_DIR, check=True)
         subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=REPO_DIR, check=True)
-        # Revert HEAD
-        subprocess.run(["git", "revert", "--no-edit", "HEAD"], cwd=REPO_DIR, check=True)
-        subprocess.run(["git", "push", "origin", "main"], cwd=REPO_DIR, check=True)
-        return {"success": True, "message": "Successfully reverted the last commit."}
+        
+        # Build to reset the preview environment
+        subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
+        
+        return {"success": True, "message": "Successfully reverted the last preview."}
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=500, detail=f"Git revert failed: {e}")
