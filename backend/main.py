@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import jwt
 from datetime import datetime, timedelta
@@ -70,16 +71,18 @@ def init_repo():
 @app.on_event("startup")
 async def startup_event():
     # 1. Unpack Gemini Auth Credentials
-    gemini_home = Path.home() / ".gemini"
-    gemini_home.mkdir(parents=True, exist_ok=True)
+    paths_to_populate = [Path.home() / ".gemini", Path("/root/.gemini")]
     
-    if "GEMINI_OAUTH_CREDS_JSON" in os.environ:
-        (gemini_home / "oauth_creds.json").write_text(os.environ["GEMINI_OAUTH_CREDS_JSON"])
-        print("Successfully injected GEMINI_OAUTH_CREDS_JSON into container.")
-    
-    if "GEMINI_SETTINGS_JSON" in os.environ:
-        (gemini_home / "settings.json").write_text(os.environ["GEMINI_SETTINGS_JSON"])
-        print("Successfully injected GEMINI_SETTINGS_JSON into container.")
+    for gemini_home in paths_to_populate:
+        try:
+            gemini_home.mkdir(parents=True, exist_ok=True)
+            if "GEMINI_OAUTH_CREDS_JSON" in os.environ:
+                (gemini_home / "oauth_creds.json").write_text(os.environ["GEMINI_OAUTH_CREDS_JSON"])
+            if "GEMINI_SETTINGS_JSON" in os.environ:
+                (gemini_home / "settings.json").write_text(os.environ["GEMINI_SETTINGS_JSON"])
+            print(f"Injected credentials into {gemini_home}")
+        except Exception as e:
+            print(f"Skipped {gemini_home}: {e}")
 
     # 2. Setup GitHub Repo and Static Route
     init_repo()
@@ -97,9 +100,21 @@ app.mount("/live-preview", StaticFiles(directory=str(REPO_DIR / "dist"), html=Tr
 # -----------------
 # Gemini Client
 # -----------------
-class GeminiClient:
-    async def generate_code(self, prompt: str, current_code: str) -> str:
-        # Reconstruct the soul.md logic
+class PreviewRequest(BaseModel):
+    prompt: str
+
+@app.post("/api/preview")
+async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
+    app_jsx_path = REPO_DIR / "src" / "App.jsx"
+    
+    if not app_jsx_path.exists():
+        raise HTTPException(status_code=500, detail="Repo missing")
+
+    current_code = app_jsx_path.read_text()
+    
+    async def event_generator():
+        yield f"data: {json.dumps({'status': 'Architecting UI structure...'})}\n\n"
+        
         system_prompt = f"""You are a World-Class Senior Creative Technologist.
 You are modifying an existing React portfolio (App.jsx) based on the user's latest prompt.
 Return ONLY valid, highly structured React JSX code. 
@@ -110,19 +125,14 @@ CURRENT SOURCE:
 {current_code}
 """
         env = os.environ.copy()
-        
-        # Write system prompt to tmp
+        env["HOME"] = "/root" # Ensure Node resolves correctly
         tmp_sys = Path(f"/tmp/sys_{uuid.uuid4()}.md")
         tmp_sys.write_text(system_prompt)
         env["GEMINI_SYSTEM_MD"] = str(tmp_sys)
         
-        cmd = [
-            "gemini", 
-            "query",
-            "-", 
-            "--output-format", "json"
-        ]
+        yield f"data: {json.dumps({'status': 'Querying Gemini 2.0 Pro Inference Engine...'})}\n\n"
         
+        cmd = ["gemini", "query", "-", "--output-format", "json"]
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdin=subprocess.PIPE,
@@ -130,84 +140,54 @@ CURRENT SOURCE:
             stderr=subprocess.PIPE,
             env=env
         )
-        stdout, stderr = await proc.communicate(input=prompt.encode())
+        stdout, stderr = await proc.communicate(input=req.prompt.encode())
         
         if proc.returncode != 0:
-            raise Exception(f"Gemini Error: {stderr.decode()}")
+            err = stderr.decode()
+            yield f"data: {json.dumps({'error': err})}\n\n"
+            return
             
         try:
             data = json.loads(stdout.decode().strip())
             raw_response = data.get("response", "")
-            # Clear markdown fences if the model forgot
             if raw_response.startswith("```"):
                 lines = raw_response.splitlines()
-                if lines[0].startswith("```"):
-                    lines = lines[1:]
-                if lines[-1].startswith("```"):
-                    lines = lines[:-1]
+                if lines[0].startswith("```"): lines = lines[1:]
+                if lines[-1].startswith("```"): lines = lines[:-1]
                 raw_response = "\n".join(lines)
-            return raw_response
+                
+            yield f"data: {json.dumps({'status': 'Applying code modifications to App.jsx...'})}\n\n"
+            app_jsx_path.write_text(raw_response)
+            
+            yield f"data: {json.dumps({'status': 'Compiling native Vite application payload...'})}\n\n"
+            
+            # Build the dynamic preview
+            build_proc = await asyncio.create_subprocess_exec(
+                "npm", "run", "build",
+                cwd=REPO_DIR,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            await build_proc.communicate()
+            
+            if build_proc.returncode != 0:
+                subprocess.run(["git", "checkout", "src/App.jsx"], cwd=REPO_DIR)
+                yield f"data: {json.dumps({'error': 'Webpack build failed on generated code.'})}\n\n"
+                return
+                
+            yield f"data: {json.dumps({'status': 'Complete.', 'previewUrl': '/live-preview/'})}\n\n"
+            
         except Exception as e:
-            raise Exception(f"Failed to parse model output: {e}")
+            subprocess.run(["git", "checkout", "src/App.jsx"], cwd=REPO_DIR)
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-# -----------------
-# API Endpoints
-# -----------------
-
-@app.post("/api/auth")
-async def login(request: AuthRequest):
-    if request.password != ADMIN_PASSWORD:
-        raise HTTPException(status_code=401, detail="Invalid password")
-    
-    token = jwt.encode(
-        {"sub": "admin", "exp": datetime.utcnow() + timedelta(hours=12)},
-        JWT_SECRET,
-        algorithm="HS256"
-    )
-    return {"token": token}
-
-class PreviewRequest(BaseModel):
-    prompt: str
-
-@app.post("/api/preview")
-async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
-    app_jsx_path = REPO_DIR / "src" / "App.jsx"
-    
-    if not app_jsx_path.exists():
-        # Fallback if local repo clone failed
-        return {"error": "Local git repository not initialized correctly."}
-        
-    current_code = app_jsx_path.read_text()
-    
-    client = GeminiClient()
-    try:
-        new_code = await client.generate_code(req.prompt, current_code)
-        app_jsx_path.write_text(new_code)
-        
-        # Build the dynamic preview
-        subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
-        
-        return {"success": True, "previewUrl": "/live-preview/"}
-    except Exception as e:
-        # Rollback the file if build fails
-        subprocess.run(["git", "checkout", "src/App.jsx"], cwd=REPO_DIR)
-        raise HTTPException(status_code=500, detail=str(e))
-
-class PublishRequest(BaseModel):
-    code: str
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.post("/api/publish")
-async def publish_changes(req: PublishRequest, _=Depends(verify_token)):
+async def publish_changes(_=Depends(verify_token)):
     app_jsx_path = REPO_DIR / "src" / "App.jsx"
     
-    # Verify working tree is clean before starting
-    subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=REPO_DIR, check=True)
-    subprocess.run(["git", "pull", "origin", "main"], cwd=REPO_DIR, check=True)
-    
-    # Overwrite
-    app_jsx_path.write_text(req.code)
-    
-    # Commit and Push
+    # Commit and Push the dirty active preview
     ts = datetime.now().strftime('%Y-%m-%d %H:%M')
     try:
         subprocess.run(["git", "add", "src/App.jsx"], cwd=REPO_DIR, check=True)

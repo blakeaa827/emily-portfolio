@@ -11,6 +11,7 @@ export default function Copilot() {
 
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(false);
+    const [statusText, setStatusText] = useState('');
     const [previewUrl, setPreviewUrl] = useState(null);
 
     // Expose this so App.jsx footer can trigger it
@@ -49,6 +50,8 @@ export default function Copilot() {
         e.preventDefault();
         if (!prompt) return;
         setLoading(true);
+        setStatusText('Architecting Changes...');
+        setPreviewUrl(null);
         try {
             const res = await fetch(`${API_BASE}/api/preview`, {
                 method: 'POST',
@@ -58,18 +61,47 @@ export default function Copilot() {
                 },
                 body: JSON.stringify({ prompt })
             });
-            if (res.ok) {
-                const data = await res.json();
-                // Append timestamp to bust iframe cache
-                setPreviewUrl(`${API_BASE}${data.previewUrl}?t=${Date.now()}`);
-                setIsOpen(false); // Close drawer to show full preview
-            } else {
-                alert("Preview Error: Server failed to generate changes.");
+
+            if (!res.ok) {
+                throw new Error(`Server returned ${res.status}`);
+            }
+
+            // Stream the responses 
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let done = false;
+
+            while (!done) {
+                const { value, done: readerDone } = await reader.read();
+                done = readerDone;
+                if (value) {
+                    const chunk = decoder.decode(value, { stream: true });
+                    const messages = chunk.split('\n\n');
+                    for (const msg of messages) {
+                        if (msg.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(msg.slice(6));
+                                if (data.error) throw new Error(data.error);
+                                if (data.status) setStatusText(data.status);
+                                if (data.previewUrl) {
+                                    setPreviewUrl(`${API_BASE}${data.previewUrl}?t=${Date.now()}`);
+                                    setIsOpen(false);
+                                }
+                            } catch (err) {
+                                if (err.message.includes("Gemini Error") || err.message.includes("Webpack")) {
+                                    throw err;
+                                }
+                                // ignore partial JSON parses mid-stream
+                            }
+                        }
+                    }
+                }
             }
         } catch (err) {
             alert("Request Error: " + err.message);
         }
         setLoading(false);
+        setStatusText('');
     };
 
     const handleAction = async (endpoint) => {
@@ -159,16 +191,26 @@ export default function Copilot() {
                                 value={prompt}
                                 onChange={e => setPrompt(e.target.value)}
                                 placeholder="e.g. Change the hero text to say..."
-                                className="w-full bg-cream/5 border border-cream/20 rounded-2xl p-4 min-h-[160px] text-cream outline-none focus:border-clay transition-colors resize-none"
+                                className={`w-full bg-cream/5 border ${loading ? 'border-clay' : 'border-cream/20'} rounded-2xl p-4 min-h-[160px] text-cream outline-none focus:border-clay transition-colors resize-none mb-4`}
                                 disabled={loading}
                             />
                             <button
                                 type="submit"
                                 disabled={loading || !prompt.trim()}
-                                className="absolute bottom-4 right-4 bg-clay p-2 rounded-xl text-cream disabled:opacity-50 disabled:cursor-not-allowed hover:bg-clay/90 transition-colors"
+                                className="absolute bottom-10 right-4 bg-clay p-2 rounded-xl text-cream disabled:opacity-50 hover:bg-clay/90 transition-colors"
+                                style={{ cursor: loading && !prompt.trim() ? "not-allowed" : "pointer" }}
                             >
                                 {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                             </button>
+
+                            {loading && statusText && (
+                                <div className="flex flex-col gap-2 mt-2 px-2">
+                                    <span className="font-mono text-xs text-clay uppercase tracking-widest">{statusText}</span>
+                                    <div className="h-1 w-full bg-cream/10 rounded overflow-hidden">
+                                        <div className="h-full bg-clay animate-pulse w-full"></div>
+                                    </div>
+                                </div>
+                            )}
                         </form>
                     </div>
                 </div>
