@@ -99,7 +99,7 @@ const Hero = () => {
       <div className="absolute inset-0 z-0">
         <img
           src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=2680&auto=format&fit=crop"
-          alt="Cinematic veterinary image of a dog"
+          alt=""
           className="w-full h-full object-cover opacity-60 mix-blend-multiply"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-charcoal via-charcoal/80 to-transparent"></div>
@@ -300,7 +300,7 @@ const Philosophy = () => {
       <div className="absolute inset-0 z-0 opacity-20 parallax-bg">
         <img
           src="https://images.unsplash.com/photo-1598287796016-56540c74fb16?q=80&w=2600&auto=format&fit=crop"
-          alt="Abstract dark horse texture"
+          alt=""
           className="w-full h-[150%] object-cover grayscale opacity-80"
         />
       </div>
