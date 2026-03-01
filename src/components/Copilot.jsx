@@ -174,15 +174,6 @@ export default function Copilot() {
                 </div>
             )}
 
-            {/* Floating Action Button */}
-            {token && !isOpen && !previewUrl && (
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="fixed bottom-8 right-8 z-50 bg-clay text-cream p-4 rounded-full shadow-2xl hover:scale-105 transition-transform"
-                >
-                    <MessageSquare size={24} />
-                </button>
-            )}
 
             {/* Copilot Drawer */}
             <div className={`fixed right-0 top-0 bottom-0 w-full max-w-md bg-moss/95 backdrop-blur-xl border-l border-cream/10 z-[100] transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
