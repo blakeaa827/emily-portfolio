@@ -86,13 +86,6 @@ async def startup_event():
 
     # 2. Setup GitHub Repo and Static Route
     init_repo()
-    
-    # 3. Ensure Node Modules exist for Vite builder
-    print("Installing Node dependencies...")
-    subprocess.run(["npm", "install"], cwd=REPO_DIR, check=True)
-    
-    # Pre-build to ensure /dist exists for StaticFiles mount
-    subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
 
 # Mount the live preview directory
 app.mount("/live-preview", StaticFiles(directory=str(REPO_DIR / "dist"), html=True), name="live-preview")
