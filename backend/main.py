@@ -173,11 +173,10 @@ def call_gemini(access_token: str, project_id: str, system_prompt: str, user_pro
 
 @app.on_event("startup")
 async def startup_event():
-    # Setup GitHub Repo
+    # Setup GitHub Repo (preserves Docker-cached node_modules + dist)
     init_repo()
-
-# Mount the live preview directory
-app.mount("/live-preview", StaticFiles(directory=str(REPO_DIR / "dist"), html=True), name="live-preview")
+    # Mount the live preview directory AFTER the repo is ready
+    app.mount("/live-preview", StaticFiles(directory=str(REPO_DIR / "dist"), html=True), name="live-preview")
 
 # -----------------
 # Auth Endpoint
