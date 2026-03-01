@@ -32,6 +32,16 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO = "github.com/blakeaa827/emily-portfolio.git"
 REPO_DIR = Path("/tmp/portfolio-repo")
 
+# Gemini CLI OAuth client credentials (loaded from Render env vars)
+GEMINI_CLIENT_ID = os.getenv("GEMINI_CLIENT_ID", "")
+GEMINI_CLIENT_SECRET = os.getenv("GEMINI_CLIENT_SECRET", "")
+
+# Code Assist API endpoint (from @google/gemini-cli-core/dist/src/code_assist/server.js)
+CODE_ASSIST_BASE = "https://cloudcode-pa.googleapis.com/v1internal"
+
+# Cached project ID (populated on first use)
+_cached_project_id = None
+
 # -----------------
 # Security Middleware
 # -----------------
@@ -69,30 +79,112 @@ def init_repo():
     subprocess.run(["git", "config", "user.email", "copilot@antigravity.sys"], cwd=REPO_DIR, check=True)
     subprocess.run(["git", "config", "user.name", "On-Page Copilot"], cwd=REPO_DIR, check=True)
 
+# -----------------
+# OAuth + Code Assist Client
+# -----------------
+def get_gemini_access_token():
+    """Use the refresh_token from the user's Google One AI Premium subscription
+    to mint a fresh access_token for the Code Assist API."""
+    oauth_json_str = os.environ.get("GEMINI_OAUTH_CREDS_JSON")
+    if not oauth_json_str:
+        raise Exception("GEMINI_OAUTH_CREDS_JSON is not set.")
+    
+    oauth_creds = json.loads(oauth_json_str)
+    refresh_token = oauth_creds.get("refresh_token")
+    
+    if not refresh_token:
+        raise Exception("No refresh_token found in OAuth credentials.")
+    
+    token_resp = requests.post("https://oauth2.googleapis.com/token", data={
+        "client_id": GEMINI_CLIENT_ID,
+        "client_secret": GEMINI_CLIENT_SECRET,
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token"
+    })
+    token_resp.raise_for_status()
+    return token_resp.json()["access_token"]
+
+
+def get_code_assist_project(access_token: str) -> str:
+    """Calls loadCodeAssist to retrieve the user's cloudaicompanionProject ID."""
+    global _cached_project_id
+    if _cached_project_id:
+        return _cached_project_id
+    
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    resp = requests.post(f"{CODE_ASSIST_BASE}:loadCodeAssist", 
+        json={
+            "metadata": {
+                "ideType": "IDE_UNSPECIFIED",
+                "platform": "PLATFORM_UNSPECIFIED",
+                "pluginType": "GEMINI"
+            }
+        },
+        headers=headers
+    )
+    resp.raise_for_status()
+    project = resp.json().get("cloudaicompanionProject")
+    if not project:
+        raise Exception("No cloudaicompanionProject returned from loadCodeAssist")
+    
+    _cached_project_id = project
+    return project
+
+
+def call_gemini(access_token: str, project_id: str, system_prompt: str, user_prompt: str) -> str:
+    """Calls the Code Assist generateContent endpoint and returns the model's text output."""
+    session_id = str(uuid.uuid4())
+    
+    payload = {
+        "model": "gemini-2.5-pro",
+        "project": project_id,
+        "user_prompt_id": str(uuid.uuid4()),
+        "request": {
+            "contents": [
+                {"role": "user", "parts": [{"text": user_prompt}]}
+            ],
+            "systemInstruction": {
+                "role": "user",
+                "parts": [{"text": system_prompt}]
+            },
+            "generationConfig": {"temperature": 0.2},
+            "session_id": session_id
+        }
+    }
+    
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    resp = requests.post(f"{CODE_ASSIST_BASE}:generateContent", json=payload, headers=headers, timeout=120)
+    resp.raise_for_status()
+    
+    data = resp.json()
+    return data.get("response", {}).get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+
+
 @app.on_event("startup")
 async def startup_event():
-    # 1. Unpack Gemini Auth Credentials
-    paths_to_populate = [Path.home() / ".gemini", Path("/root/.gemini")]
-    
-    for gemini_home in paths_to_populate:
-        try:
-            gemini_home.mkdir(parents=True, exist_ok=True)
-            if "GEMINI_OAUTH_CREDS_JSON" in os.environ:
-                (gemini_home / "oauth_creds.json").write_text(os.environ["GEMINI_OAUTH_CREDS_JSON"])
-            if "GEMINI_SETTINGS_JSON" in os.environ:
-                (gemini_home / "settings.json").write_text(os.environ["GEMINI_SETTINGS_JSON"])
-            print(f"Injected credentials into {gemini_home}")
-        except Exception as e:
-            print(f"Skipped {gemini_home}: {e}")
-
-    # 2. Setup GitHub Repo and Static Route
+    # Setup GitHub Repo
     init_repo()
 
 # Mount the live preview directory
 app.mount("/live-preview", StaticFiles(directory=str(REPO_DIR / "dist"), html=True), name="live-preview")
 
 # -----------------
-# Gemini Client
+# Auth Endpoint
+# -----------------
+@app.post("/api/auth")
+async def login(request: AuthRequest):
+    if request.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid password")
+    
+    token = jwt.encode(
+        {"sub": "admin", "exp": datetime.utcnow() + timedelta(hours=12)},
+        JWT_SECRET,
+        algorithm="HS256"
+    )
+    return {"token": token}
+
+# -----------------
+# Preview Endpoint (SSE)
 # -----------------
 class PreviewRequest(BaseModel):
     prompt: str
@@ -107,67 +199,64 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
     current_code = app_jsx_path.read_text()
     
     async def event_generator():
-        yield f"data: {json.dumps({'status': 'Architecting UI structure...'})}\n\n"
+        yield 'data: {"status": "Architecting UI structure..."}\n\n'
         
-        system_prompt = f"""You are a World-Class Senior Creative Technologist.
-You are modifying an existing React portfolio (App.jsx) based on the user's latest prompt.
-Return ONLY valid, highly structured React JSX code. 
-Do not wrap it in markdown block quotes (e.g. ```jsx). 
-No yapping. Only the exact raw source string.
-
-CURRENT SOURCE:
-{current_code}
-"""
-        yield f"data: {json.dumps({'status': 'Querying Gemini 2.0 Pro Inference Engine...'})}\n\n"
+        system_prompt = (
+            "You are a World-Class Senior Creative Technologist.\n"
+            "You are modifying an existing React portfolio (App.jsx) based on the user's latest prompt.\n"
+            "Return ONLY valid, highly structured React JSX code.\n"
+            "Do not wrap it in markdown block quotes (e.g. ```jsx).\n"
+            "No yapping. Only the exact raw source string.\n\n"
+            "CURRENT SOURCE:\n" + current_code
+        )
         
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            yield f"data: {json.dumps({'error': 'GEMINI_API_KEY is not set in the environment.'})}\n\n"
+        yield 'data: {"status": "Authenticating with Gemini Code Assist..."}\n\n'
+        
+        # Mint fresh OAuth access token
+        try:
+            access_token = get_gemini_access_token()
+        except Exception as e:
+            yield f'data: {json.dumps({"error": f"OAuth Error: {str(e)}"})}\n\n'
             return
-            
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={api_key}"
         
-        payload = {
-            "system_instruction": {
-                "parts": [{"text": system_prompt}]
-            },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": req.prompt}]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.2
-            }
-        }
+        yield 'data: {"status": "Resolving project context..."}\n\n'
         
-        # We use sync requests here for simplicity within the async generator, 
-        # or we could use httpx. For now, requests.post is perfectly fine.
+        # Get project ID
+        try:
+            project_id = get_code_assist_project(access_token)
+        except Exception as e:
+            yield f'data: {json.dumps({"error": f"Project Error: {str(e)}"})}\n\n'
+            return
+        
+        yield 'data: {"status": "Querying Gemini 2.5 Pro Inference Engine..."}\n\n'
+        
+        # Call Code Assist generateContent
         loop = asyncio.get_event_loop()
         try:
-            resp = await loop.run_in_executor(None, lambda: requests.post(url, json=payload, headers={'Content-Type': 'application/json'}))
-            resp.raise_for_status()
-            data = resp.json()
-            
-            raw_response = data["candidates"][0]["content"]["parts"][0]["text"]
+            raw_response = await loop.run_in_executor(
+                None,
+                lambda: call_gemini(access_token, project_id, system_prompt, req.prompt)
+            )
         except Exception as e:
             err_msg = str(e)
-            if 'resp' in locals(): err_msg += f" - {resp.text}"
-            yield f"data: {json.dumps({'error': f'Gemini API Error: {err_msg}'})}\n\n"
+            yield f'data: {json.dumps({"error": f"Gemini Error: {err_msg}"})}\n\n'
             return
-            if raw_response.startswith("```"):
-                lines = raw_response.splitlines()
-                if lines[0].startswith("```"): lines = lines[1:]
-                if lines[-1].startswith("```"): lines = lines[:-1]
-                raw_response = "\n".join(lines)
-                
-            yield f"data: {json.dumps({'status': 'Applying code modifications to App.jsx...'})}\n\n"
+        
+        # Strip markdown code fences if the model wrapped the output
+        if raw_response.startswith("```"):
+            lines = raw_response.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].startswith("```"):
+                lines = lines[:-1]
+            raw_response = "\n".join(lines)
+        
+        try:
+            yield 'data: {"status": "Applying code modifications to App.jsx..."}\n\n'
             app_jsx_path.write_text(raw_response)
             
-            yield f"data: {json.dumps({'status': 'Compiling native Vite application payload...'})}\n\n"
+            yield 'data: {"status": "Compiling native Vite application payload..."}\n\n'
             
-            # Build the dynamic preview
             build_proc = await asyncio.create_subprocess_exec(
                 "npm", "run", "build",
                 cwd=REPO_DIR,
@@ -178,22 +267,21 @@ CURRENT SOURCE:
             
             if build_proc.returncode != 0:
                 subprocess.run(["git", "checkout", "src/App.jsx"], cwd=REPO_DIR)
-                yield f"data: {json.dumps({'error': 'Webpack build failed on generated code.'})}\n\n"
+                yield 'data: {"error": "Vite build failed on generated code."}\n\n'
                 return
-                
-            yield f"data: {json.dumps({'status': 'Complete.', 'previewUrl': '/live-preview/'})}\n\n"
             
+            yield f'data: {json.dumps({"status": "Complete.", "previewUrl": "/live-preview/"})}\n\n'
         except Exception as e:
             subprocess.run(["git", "checkout", "src/App.jsx"], cwd=REPO_DIR)
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield f'data: {json.dumps({"error": str(e)})}\n\n'
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+# -----------------
+# Publish & Revert
+# -----------------
 @app.post("/api/publish")
 async def publish_changes(_=Depends(verify_token)):
-    app_jsx_path = REPO_DIR / "src" / "App.jsx"
-    
-    # Commit and Push the dirty active preview
     ts = datetime.now().strftime('%Y-%m-%d %H:%M')
     try:
         subprocess.run(["git", "add", "src/App.jsx"], cwd=REPO_DIR, check=True)
@@ -208,10 +296,7 @@ async def revert_changes(_=Depends(verify_token)):
     try:
         subprocess.run(["git", "fetch", "origin"], cwd=REPO_DIR, check=True)
         subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=REPO_DIR, check=True)
-        
-        # Build to reset the preview environment
         subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
-        
         return {"success": True, "message": "Successfully reverted the last preview."}
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=500, detail=f"Git revert failed: {e}")
