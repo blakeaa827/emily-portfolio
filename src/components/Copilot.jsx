@@ -62,6 +62,14 @@ export default function Copilot() {
                 body: JSON.stringify({ prompt })
             });
 
+            if (res.status === 401) {
+                localStorage.removeItem('copilot_token');
+                setToken(null);
+                setShowLogin(true);
+                setLoading(false);
+                setStatusText('');
+                return;
+            }
             if (!res.ok) {
                 throw new Error(`Server returned ${res.status}`);
             }
@@ -114,6 +122,12 @@ export default function Copilot() {
                     'Authorization': `Bearer ${token}`
                 }
             });
+            if (res.status === 401) {
+                localStorage.removeItem('copilot_token');
+                setToken(null);
+                setShowLogin(true);
+                return;
+            }
             if (res.ok) {
                 setPreviewUrl(null);
                 setPrompt('');
