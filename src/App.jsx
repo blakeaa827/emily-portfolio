@@ -252,7 +252,7 @@ const TimelineCard = () => {
             <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-cream border-2 border-moss/30 flex items-center justify-center -translate-x-1.5 z-10">
               <div className="w-2 h-2 rounded-full bg-moss/30 group-hover:bg-moss transition-colors"></div>
             </div>
-            <span className="font-mono text-sm font-bold text-moss">2022</span>
+            <span className="font-mono text-sm font-bold text-moss">2021</span>
             <p className="font-serif italic text-lg text-charcoal">Began Veterinary Journey</p>
           </div>
         </div>
