@@ -31,7 +31,7 @@ const SKILLS = [
   "SCS 695 ECCM Protocol Integration", "Anesthesia Monitoring & Surgical Prep",
   "Radiography & Diagnostic Imaging", "Gibbs Ranch Large Animal Handling",
   "Emergency Patient Triage", "Phlebotomy & Venipuncture",
-  "Complex Pharmaceutical Education", "Bilingual Operations Management"
+  "Complex Pharmaceutical Education", "Level 2b Spanish Communication"
 ];
 
 const EXPERIENCE = [
@@ -117,7 +117,7 @@ const Hero = () => {
           </span>
         </h1>
         <p className="hero-desc mt-8 font-mono text-cream/70 max-w-xl text-lg md:text-xl">
-          MSU CVM Class of 2029 • Clinical Veterinary Technician • Bilingual Communicator
+          MSU CVM Class of 2029 • Clinical Veterinary Technician • Level 2b Spanish
         </p>
 
         <div className="hero-desc mt-12 animate-bounce">
