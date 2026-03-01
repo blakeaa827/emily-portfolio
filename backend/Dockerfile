@@ -11,8 +11,8 @@ RUN npm install -g @google/gemini-cli@0.29.7
 # Pre-cache the React Portfolio dependencies and initial build
 # Using a public clone here since we don't have the GITHUB_TOKEN build arg,
 # then we'll re-auth the remote during python startup.
-RUN git clone https://github.com/blakeaa827/emily-portfolio.git /tmp/portfolio-repo && \
-    cd /tmp/portfolio-repo && \
+RUN git clone https://github.com/blakeaa827/emily-portfolio.git /opt/portfolio-repo && \
+    cd /opt/portfolio-repo && \
     npm install && \
     npm run build
 

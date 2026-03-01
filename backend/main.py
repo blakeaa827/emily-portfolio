@@ -30,7 +30,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "emily123")
 JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-prod")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO = "github.com/blakeaa827/emily-portfolio.git"
-REPO_DIR = Path("/tmp/portfolio-repo")
+REPO_DIR = Path("/opt/portfolio-repo")
 
 # Gemini CLI OAuth client credentials (loaded from Render env vars)
 GEMINI_CLIENT_ID = os.getenv("GEMINI_CLIENT_ID", "")
