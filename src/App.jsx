@@ -180,20 +180,12 @@ const TypewriterCard = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    // Add safety check for bounds
     if (skillIdx >= SKILLS.length) {
-      console.warn("TypewriterCard: skillIdx out of bounds", skillIdx);
       setSkillIdx(0);
       return;
     }
     const currentSkill = SKILLS[skillIdx];
-    // Safeguard against undefined skill
-    if (!currentSkill) {
-      console.error("TypewriterCard: currentSkill is undefined at index", skillIdx);
-      return;
-    }
-
-    console.log("TypewriterCard: Typing skill", currentSkill, "Current text:", text);
+    if (!currentSkill) return;
 
     const typeSpeed = isDeleting ? 30 : 80;
     const pauseBeforeDelete = 1500;
@@ -359,7 +351,7 @@ const Experience = () => {
       const cards = gsap.utils.toArray('.experience-card');
 
       cards.forEach((card, i) => {
-        if (i === cards.length - 1) return; // Don\'t animate the last card out
+        if (i === cards.length - 1) return;
 
         gsap.to(card, {
           scale: 0.9,
@@ -414,8 +406,10 @@ const Dossier = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
           {/* Primary CTA */}
           <a
-            href="/Professional Resume Assignment.pdf"
-            download
+            href="/Professional%20Resume%20Assignment.pdf"
+            download="Emily_Maxwell_CV.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
             className="magnetic-btn group bg-moss/20 hover:bg-moss/40 border border-moss rounded-[2rem] p-12 transition-colors flex flex-col justify-between h-80"
           >
             <div className="flex justify-between items-start">
