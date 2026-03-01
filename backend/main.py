@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import jwt
+import requests
 from datetime import datetime, timedelta
 
 app = FastAPI(title="Emily Portfolio Copilot API")
@@ -117,34 +118,44 @@ No yapping. Only the exact raw source string.
 CURRENT SOURCE:
 {current_code}
 """
-        env = os.environ.copy()
-        env["HOME"] = "/root" # Force Gemini Node.js to read from /root/.gemini/
-        env["GOOGLE_APPLICATION_CREDENTIALS"] = "/root/.gemini/oauth_creds.json"
-        
-        tmp_sys = Path(f"/tmp/sys_{uuid.uuid4()}.md")
-        tmp_sys.write_text(system_prompt)
-        env["GEMINI_SYSTEM_MD"] = str(tmp_sys)
-        
         yield f"data: {json.dumps({'status': 'Querying Gemini 2.0 Pro Inference Engine...'})}\n\n"
         
-        cmd = ["gemini", "query", "-", "--output-format", "json"]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env
-        )
-        stdout, stderr = await proc.communicate(input=req.prompt.encode())
-        
-        if proc.returncode != 0:
-            err = stderr.decode()
-            yield f"data: {json.dumps({'error': err})}\n\n"
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            yield f"data: {json.dumps({'error': 'GEMINI_API_KEY is not set in the environment.'})}\n\n"
             return
             
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={api_key}"
+        
+        payload = {
+            "system_instruction": {
+                "parts": [{"text": system_prompt}]
+            },
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": req.prompt}]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2
+            }
+        }
+        
+        # We use sync requests here for simplicity within the async generator, 
+        # or we could use httpx. For now, requests.post is perfectly fine.
+        loop = asyncio.get_event_loop()
         try:
-            data = json.loads(stdout.decode().strip())
-            raw_response = data.get("response", "")
+            resp = await loop.run_in_executor(None, lambda: requests.post(url, json=payload, headers={'Content-Type': 'application/json'}))
+            resp.raise_for_status()
+            data = resp.json()
+            
+            raw_response = data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception as e:
+            err_msg = str(e)
+            if 'resp' in locals(): err_msg += f" - {resp.text}"
+            yield f"data: {json.dumps({'error': f'Gemini API Error: {err_msg}'})}\n\n"
+            return
             if raw_response.startswith("```"):
                 lines = raw_response.splitlines()
                 if lines[0].startswith("```"): lines = lines[1:]
