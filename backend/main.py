@@ -149,7 +149,7 @@ def call_gemini(access_token: str, project_id: str, system_prompt: str, user_pro
     session_id = str(uuid.uuid4())
     
     payload = {
-        "model": "gemini-2.5-pro",
+        "model": "gemini-3.1-pro-preview",
         "project": project_id,
         "user_prompt_id": str(uuid.uuid4()),
         "request": {
@@ -262,7 +262,7 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
             yield f'data: {json.dumps({"error": f"Project Error: {str(e)}"})}\n\n'
             return
         
-        yield 'data: {"status": "Querying Gemini 2.5 Pro Inference Engine..."}\n\n'
+        yield 'data: {"status": "Querying Gemini 3.1 Pro Inference Engine..."}\n\n'
         
         loop = asyncio.get_event_loop()
         try:
