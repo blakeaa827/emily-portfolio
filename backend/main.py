@@ -189,6 +189,17 @@ async def startup_event():
     loop.run_in_executor(None, init_repo)
 
 # -----------------
+# Health Check (Render pings GET / to verify container is alive)
+# -----------------
+@app.get("/")
+async def health_check():
+    return {"status": "ok"}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "repo_ready": _repo_ready}
+
+# -----------------
 # Auth Endpoint
 # -----------------
 @app.post("/api/auth")
