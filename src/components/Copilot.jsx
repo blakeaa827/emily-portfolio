@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, MessageSquare, Send, X, Check, Eye } from 'lucide-react';
+import { Loader2, MessageSquare, Send, X, Check, Eye, Edit2 } from 'lucide-react';
 
 const API_BASE = "https://emily-portfolio-copilot.onrender.com";
 
@@ -247,6 +247,13 @@ export default function Copilot() {
                                 className="flex items-center gap-2 px-4 py-2 rounded-full border border-cream/20 text-cream/70 hover:text-cream hover:bg-cream/10 transition-colors disabled:opacity-50"
                             >
                                 <X size={16} /> Discard
+                            </button>
+                            <button
+                                onClick={() => { setPreviewUrl(null); setIsOpen(true); }}
+                                disabled={loading}
+                                className="flex items-center gap-2 px-4 py-2 rounded-full border border-clay/50 text-clay hover:text-cream hover:bg-clay/20 transition-colors disabled:opacity-50"
+                            >
+                                <Edit2 size={16} /> Refine
                             </button>
                             <button
                                 onClick={() => handleAction('publish')}
