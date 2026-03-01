@@ -24,7 +24,7 @@ const PROFILE = {
 const SHUFFLER_CARDS = [
   { id: 1, title: "D.V.M. Candidate", desc: "Undecided Specialty • Michigan State CVM", icon: GraduationCap },
   { id: 2, title: "Clinical Vet Tech", desc: "Advanced Surgical Prep & Triage • Herbst Vet", icon: Syringe },
-  { id: 3, title: "Bachelors of Science in Animal Science, Minor in Pre-Veterinary Medicine", desc: "Gibbs Ranch \"Living Classroom\" Alum • SHSU", icon: ClipboardList }
+  { id: 3, title: "B.S. in Animal Science, Minor in Pre-Veterinary Medicine", desc: "Gibbs Ranch \"Living Classroom\" Alum • SHSU", icon: ClipboardList }
 ];
 
 const SKILLS = [
@@ -245,7 +245,7 @@ const TimelineCard = () => {
               <div className="w-2 h-2 rounded-full bg-moss/30 group-hover:bg-moss transition-colors"></div>
             </div>
             <span className="font-mono text-sm font-bold text-moss">August 2024</span>
-            <p className="font-serif italic text-lg text-charcoal">Bachelors of Science in Animal Science, Minor in Pre-Veterinary Medicine • Sam Houston State University, Texas</p>
+            <p className="font-serif italic text-lg text-charcoal">B.S. in Animal Science, Minor in Pre-Veterinary Medicine • SHSU, Texas</p>
           </div>
 
           <div className="relative pl-8 group">
