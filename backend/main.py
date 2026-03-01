@@ -36,11 +36,12 @@ REPO_DIR = Path("/tmp/portfolio-repo")
 GEMINI_CLIENT_ID = os.getenv("GEMINI_CLIENT_ID", "")
 GEMINI_CLIENT_SECRET = os.getenv("GEMINI_CLIENT_SECRET", "")
 
-# Code Assist API endpoint (from @google/gemini-cli-core/dist/src/code_assist/server.js)
+# Code Assist API endpoint
 CODE_ASSIST_BASE = "https://cloudcode-pa.googleapis.com/v1internal"
 
-# Cached project ID (populated on first use)
+# Cached state
 _cached_project_id = None
+_repo_ready = False
 
 # -----------------
 # Security Middleware
@@ -61,41 +62,42 @@ def verify_token(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 # -----------------
-# Git Subsystem
+# Git Subsystem (runs in background thread)
 # -----------------
 def init_repo():
-    if not GITHUB_TOKEN:
-        print("WARNING: No GITHUB_TOKEN set. Git pushing will fail.")
-    
-    auth_url = f"https://oauth2:{GITHUB_TOKEN}@{GITHUB_REPO}"
-    
-    if REPO_DIR.exists() and (REPO_DIR / ".git").exists():
-        # Repo was pre-cached during Docker build — preserve node_modules and dist
-        # Just re-auth the remote and pull latest
-        print("Using pre-cached repo, updating remote and pulling latest...")
-        subprocess.run(["git", "remote", "set-url", "origin", auth_url], cwd=REPO_DIR, check=True)
-        subprocess.run(["git", "fetch", "origin"], cwd=REPO_DIR, check=True)
-        subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=REPO_DIR, check=True)
-    else:
-        # No cached repo — full clone
-        if REPO_DIR.exists():
-            shutil.rmtree(REPO_DIR)
-        print("Cloning fresh repo...")
-        subprocess.run(["git", "clone", auth_url, str(REPO_DIR)], check=True)
-        # Install dependencies since there's no cache
-        subprocess.run(["npm", "install"], cwd=REPO_DIR, check=True)
-        subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
-    
-    # Configure Git identity
-    subprocess.run(["git", "config", "user.email", "copilot@antigravity.sys"], cwd=REPO_DIR, check=True)
-    subprocess.run(["git", "config", "user.name", "On-Page Copilot"], cwd=REPO_DIR, check=True)
+    global _repo_ready
+    try:
+        if not GITHUB_TOKEN:
+            print("WARNING: No GITHUB_TOKEN set. Git pushing will fail.")
+        
+        auth_url = f"https://oauth2:{GITHUB_TOKEN}@{GITHUB_REPO}"
+        
+        if REPO_DIR.exists() and (REPO_DIR / ".git").exists():
+            print("Using pre-cached repo, updating remote and pulling latest...")
+            subprocess.run(["git", "remote", "set-url", "origin", auth_url], cwd=REPO_DIR, check=True)
+            subprocess.run(["git", "fetch", "origin"], cwd=REPO_DIR, check=True)
+            subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=REPO_DIR, check=True)
+        else:
+            if REPO_DIR.exists():
+                shutil.rmtree(REPO_DIR)
+            print("Cloning fresh repo...")
+            subprocess.run(["git", "clone", auth_url, str(REPO_DIR)], check=True)
+            subprocess.run(["npm", "install"], cwd=REPO_DIR, check=True)
+            subprocess.run(["npm", "run", "build"], cwd=REPO_DIR, check=True)
+        
+        subprocess.run(["git", "config", "user.email", "copilot@antigravity.sys"], cwd=REPO_DIR, check=True)
+        subprocess.run(["git", "config", "user.name", "On-Page Copilot"], cwd=REPO_DIR, check=True)
+        _repo_ready = True
+        print("Repo initialization complete.")
+    except Exception as e:
+        print(f"Repo init error (non-fatal, using cached version): {e}")
+        _repo_ready = True
 
 # -----------------
 # OAuth + Code Assist Client
 # -----------------
 def get_gemini_access_token():
-    """Use the refresh_token from the user's Google One AI Premium subscription
-    to mint a fresh access_token for the Code Assist API."""
+    """Mint a fresh access_token using the refresh_token from the user's Google subscription."""
     oauth_json_str = os.environ.get("GEMINI_OAUTH_CREDS_JSON")
     if not oauth_json_str:
         raise Exception("GEMINI_OAUTH_CREDS_JSON is not set.")
@@ -143,7 +145,7 @@ def get_code_assist_project(access_token: str) -> str:
 
 
 def call_gemini(access_token: str, project_id: str, system_prompt: str, user_prompt: str) -> str:
-    """Calls the Code Assist generateContent endpoint and returns the model's text output."""
+    """Calls the Code Assist generateContent endpoint."""
     session_id = str(uuid.uuid4())
     
     payload = {
@@ -171,12 +173,20 @@ def call_gemini(access_token: str, project_id: str, system_prompt: str, user_pro
     return data.get("response", {}).get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
 
 
+# -----------------
+# Startup (non-blocking for health check)
+# -----------------
 @app.on_event("startup")
 async def startup_event():
-    # Setup GitHub Repo (preserves Docker-cached node_modules + dist)
-    init_repo()
-    # Mount the live preview directory AFTER the repo is ready
-    app.mount("/live-preview", StaticFiles(directory=str(REPO_DIR / "dist"), html=True), name="live-preview")
+    # Mount the Docker-cached dist IMMEDIATELY so Render's health check passes
+    dist_dir = REPO_DIR / "dist"
+    if dist_dir.exists():
+        app.mount("/live-preview", StaticFiles(directory=str(dist_dir), html=True), name="live-preview")
+        print("Mounted pre-cached dist for health check.")
+    
+    # Defer heavy git operations to background thread
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, init_repo)
 
 # -----------------
 # Auth Endpoint
@@ -209,6 +219,11 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
     current_code = app_jsx_path.read_text()
     
     async def event_generator():
+        # Wait for repo initialization if still in progress
+        while not _repo_ready:
+            yield 'data: {"status": "Initializing repository..."}\n\n'
+            await asyncio.sleep(2)
+        
         yield 'data: {"status": "Architecting UI structure..."}\n\n'
         
         system_prompt = (
@@ -222,7 +237,6 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
         
         yield 'data: {"status": "Authenticating with Gemini Code Assist..."}\n\n'
         
-        # Mint fresh OAuth access token
         try:
             access_token = get_gemini_access_token()
         except Exception as e:
@@ -231,7 +245,6 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
         
         yield 'data: {"status": "Resolving project context..."}\n\n'
         
-        # Get project ID
         try:
             project_id = get_code_assist_project(access_token)
         except Exception as e:
@@ -240,7 +253,6 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
         
         yield 'data: {"status": "Querying Gemini 2.5 Pro Inference Engine..."}\n\n'
         
-        # Call Code Assist generateContent
         loop = asyncio.get_event_loop()
         try:
             raw_response = await loop.run_in_executor(
