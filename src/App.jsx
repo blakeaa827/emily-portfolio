@@ -22,9 +22,9 @@ const PROFILE = {
 };
 
 const SHUFFLER_CARDS = [
-  { id: 1, title: "D.V.M. Candidate", desc: "SCS 695 ER/Critical Care focus • Michigan State CVM", icon: GraduationCap },
+  { id: 1, title: "D.V.M. Candidate", desc: "Undecided Specialty • Michigan State CVM", icon: GraduationCap },
   { id: 2, title: "Clinical Vet Tech", desc: "Advanced Surgical Prep & Triage • Herbst Vet", icon: Syringe },
-  { id: 3, title: "B.S. Animal Science", desc: "Gibbs Ranch \"Living Classroom\" Alum • SHSU", icon: ClipboardList }
+  { id: 3, title: "Bachelors of Science in Animal Science, Minor in Pre-Veterinary Medicine", desc: "Gibbs Ranch \"Living Classroom\" Alum • SHSU", icon: ClipboardList }
 ];
 
 const SKILLS = [
@@ -158,9 +158,9 @@ const ShufflerCard = () => {
                   <div className="p-2 bg-moss/10 rounded-full text-moss">
                     <Icon size={24} />
                   </div>
-                  <h3 className="font-sans font-bold text-2xl text-moss">{card.title}</h3>
+                  <h3 className="font-sans font-bold text-xl md:text-2xl text-moss truncate">{card.title}</h3>
                 </div>
-                <p className="font-serif italic text-xl text-charcoal/80 ml-14">{card.desc}</p>
+                <p className="font-serif italic text-lg md:text-xl text-charcoal/80 ml-14">{card.desc}</p>
               </div>
             );
           })}
@@ -237,15 +237,15 @@ const TimelineCard = () => {
               <div className="w-2 h-2 rounded-full bg-clay group-hover:scale-150 transition-transform"></div>
             </div>
             <span className="font-mono text-sm font-bold text-clay">May 2029</span>
-            <p className="font-serif italic text-lg text-charcoal">Expected D.V.M. • Clinical ER Focus (MSU CVM)</p>
+            <p className="font-serif italic text-lg text-charcoal">Expected Graduation • Undecided Specialty (MSU CVM)</p>
           </div>
 
           <div className="relative pl-8 group">
             <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-cream border-2 border-moss/30 flex items-center justify-center -translate-x-1.5 z-10">
               <div className="w-2 h-2 rounded-full bg-moss/30 group-hover:bg-moss transition-colors"></div>
             </div>
-            <span className="font-mono text-sm font-bold text-moss">Aug 2024</span>
-            <p className="font-serif italic text-lg text-charcoal">B.S. Animal Science • Sam Houston State University, Texas</p>
+            <span className="font-mono text-sm font-bold text-moss">August 2024</span>
+            <p className="font-serif italic text-lg text-charcoal">Bachelors of Science in Animal Science, Minor in Pre-Veterinary Medicine • Sam Houston State University, Texas</p>
           </div>
 
           <div className="relative pl-8 group">
