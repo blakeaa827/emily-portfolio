@@ -245,7 +245,7 @@ const TimelineCard = () => {
               <div className="w-2 h-2 rounded-full bg-moss/30 group-hover:bg-moss transition-colors"></div>
             </div>
             <span className="font-mono text-sm font-bold text-moss">Aug 2024</span>
-            <p className="font-serif italic text-lg text-charcoal">B.S. Animal Science • Gibbs Ranch Alum (SHSU)</p>
+            <p className="font-serif italic text-lg text-charcoal">B.S. Animal Science • Sam Houston State University, Texas</p>
           </div>
 
           <div className="relative pl-8 group">
