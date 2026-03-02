@@ -23,7 +23,7 @@ const PROFILE = {
 
 const SHUFFLER_CARDS = [
   { id: 1, title: "D.V.M. Candidate", desc: "Undecided Specialty • Michigan State CVM", icon: GraduationCap },
-  { id: 2, title: "Clinical Vet Tech", desc: "Advanced Surgical Prep & Triage • Herbst Vet", icon: Syringe },
+  { id: 2, title: "Clinical Vet Tech", desc: "Surgical Prep & Triage • Herbst Vet", icon: Syringe },
   { id: 3, title: "B.S. in Animal Science, Minor in Pre-Veterinary Medicine", desc: "Gibbs Ranch \"Living Classroom\" Alum • Huntsville, Texas", icon: ClipboardList }
 ];
 
@@ -39,7 +39,7 @@ const EXPERIENCE = [
     year: "2024 - 2025",
     role: "Veterinary Technician",
     institution: "Herbst Veterinary Hospital • Boerne, TX",
-    impact: "Executed advanced surgical preparation, precise anesthetic monitoring, and digital radiography. Functioned as the primary triage responder in high-volume emergency and critical care scenarios, ensuring seamless medical record fidelity."
+    impact: "Executed surgical preparation, precise anesthetic monitoring, and digital radiography. Functioned as the primary triage responder in high-volume emergency and critical care scenarios, ensuring seamless medical record fidelity."
   },
   {
     year: "2022 - 2024",
