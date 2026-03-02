@@ -10,6 +10,7 @@ export default function Copilot() {
     const [password, setPassword] = useState('');
 
     const [prompt, setPrompt] = useState('');
+    const [model, setModel] = useState('gemini-3-flash-preview');
     const [loading, setLoading] = useState(false);
     const [statusText, setStatusText] = useState('');
     const [previewUrl, setPreviewUrl] = useState(null);
@@ -59,7 +60,7 @@ export default function Copilot() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ prompt })
+                body: JSON.stringify({ prompt, model })
             });
 
             if (res.status === 401) {
@@ -199,6 +200,20 @@ export default function Copilot() {
                                 className={`w-full bg-cream/5 border ${loading ? 'border-clay' : 'border-cream/20'} rounded-2xl p-4 min-h-[160px] text-cream outline-none focus:border-clay transition-colors resize-none mb-4`}
                                 disabled={loading}
                             />
+
+                            <div className="flex items-center gap-3 mb-4">
+                                <label className="font-mono text-xs text-cream/50 uppercase tracking-wider whitespace-nowrap">Model</label>
+                                <select
+                                    value={model}
+                                    onChange={e => setModel(e.target.value)}
+                                    disabled={loading}
+                                    className="flex-1 bg-cream/5 border border-cream/20 rounded-xl px-3 py-2 text-cream font-mono text-xs outline-none focus:border-clay transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                                >
+                                    <option value="gemini-3-flash-preview">⚡ Flash (Fast)</option>
+                                    <option value="gemini-3.1-pro-preview">🧠 Pro (Capable)</option>
+                                </select>
+                            </div>
+
                             <button
                                 type="submit"
                                 disabled={loading || !prompt.trim()}

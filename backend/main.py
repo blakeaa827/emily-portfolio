@@ -144,12 +144,12 @@ def get_code_assist_project(access_token: str) -> str:
     return project
 
 
-def call_gemini(access_token: str, project_id: str, system_prompt: str, user_prompt: str) -> str:
+def call_gemini(access_token: str, project_id: str, system_prompt: str, user_prompt: str, model: str = "gemini-3-flash-preview") -> str:
     """Calls the Code Assist generateContent endpoint."""
     session_id = str(uuid.uuid4())
     
     payload = {
-        "model": "gemini-3.1-pro-preview",
+        "model": model,
         "project": project_id,
         "user_prompt_id": str(uuid.uuid4()),
         "request": {
@@ -219,6 +219,7 @@ async def login(request: AuthRequest):
 # -----------------
 class PreviewRequest(BaseModel):
     prompt: str
+    model: str = "gemini-3-flash-preview"
 
 @app.post("/api/preview")
 async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
@@ -262,13 +263,14 @@ async def preview_changes(req: PreviewRequest, _=Depends(verify_token)):
             yield f'data: {json.dumps({"error": f"Project Error: {str(e)}"})}\n\n'
             return
         
-        yield 'data: {"status": "Querying Gemini 3.1 Pro Inference Engine..."}\n\n'
+        model_label = "Pro" if "pro" in req.model else "Flash"
+        yield f'data: {{"status": "Querying Gemini {model_label} Inference Engine..."}}\n\n'
         
         loop = asyncio.get_event_loop()
         try:
             raw_response = await loop.run_in_executor(
                 None,
-                lambda: call_gemini(access_token, project_id, system_prompt, req.prompt)
+                lambda: call_gemini(access_token, project_id, system_prompt, req.prompt, req.model)
             )
         except Exception as e:
             err_msg = str(e)
