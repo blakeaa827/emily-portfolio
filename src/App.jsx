@@ -28,10 +28,10 @@ const SHUFFLER_CARDS = [
 ];
 
 const SKILLS = [
-  "SCS 695 ECCM Protocol Integration", "Anesthesia Monitoring & Surgical Prep",
+  "ECCM Protocol Integration", "Anesthesia Monitoring & Surgical Prep",
   "Radiography & Diagnostic Imaging", "Gibbs Ranch Large Animal Handling",
   "Emergency Patient Triage", "Phlebotomy & Venipuncture",
-  "Complex Pharmaceutical Education", "Level 2b Spanish Communication"
+  "Complex Pharmaceutical Education"
 ];
 
 const EXPERIENCE = [
