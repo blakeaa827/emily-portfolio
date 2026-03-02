@@ -24,7 +24,7 @@ const PROFILE = {
 const SHUFFLER_CARDS = [
   { id: 1, title: "D.V.M. Candidate", desc: "Undecided Specialty • Michigan State CVM", icon: GraduationCap },
   { id: 2, title: "Clinical Vet Tech", desc: "Surgical Prep & Triage • Herbst Vet", icon: Syringe },
-  { id: 3, title: "B.S. in Animal Science, Minor in Pre-Veterinary Medicine", desc: "Gibbs Ranch \"Living Classroom\" Alum • Huntsville, Texas", icon: ClipboardList }
+  { id: 3, title: "B.S. in Animal Science, Minor in Pre-Veterinary Medicine", desc: "Gibbs Ranch Alum • Huntsville, Texas", icon: ClipboardList }
 ];
 
 const SKILLS = [
