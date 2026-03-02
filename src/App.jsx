@@ -116,8 +116,10 @@ const Hero = () => {
             {PROFILE.heroNoun}.
           </span>
         </h1>
-        <p className="hero-desc mt-8 font-mono text-cream/70 max-w-xl text-lg md:text-xl">
-          MSU CVM Class of 2029 • Veterinary Medical Student • Level 2b Spanish
+        <p className="hero-desc mt-8 font-mono text-cream/70 max-w-xl text-lg md:text-xl space-y-1">
+          <span className="block">Michigan State University CVM Class of 2029</span>
+          <span className="block">Veterinary Medical Student</span>
+          <span className="block">English (Fluent) Spanish (Intermediate)</span>
         </p>
 
         <div className="hero-desc mt-12 animate-bounce">
