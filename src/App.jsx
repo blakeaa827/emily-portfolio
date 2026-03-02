@@ -46,12 +46,6 @@ const EXPERIENCE = [
     role: "Veterinary Assistant",
     institution: "Bear Branch Animal Hospital • Magnolia, TX",
     impact: "Managed critical translational communication between veterinary specialists and clients. Educated owners on complex pharmaceutical protocols and safely restrained diverse animal cases for venipuncture and diagnostic imaging procedures."
-  },
-  {
-    year: "2017 - 2021",
-    role: "General Manager",
-    institution: "Native Teachers Idiomas LTDA • Santiago, Chile",
-    impact: "Directed a premier immersive linguistic academy utilizing the 'Native Method'. Oversaw hiring, international visa processing, and corporate SENCE-subsidized training operations for high-level business clientele in Santiago."
   }
 ];
 
