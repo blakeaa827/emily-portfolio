@@ -113,7 +113,7 @@ const Hero = () => {
           </span>
           <br />
           <span className="hero-line-2 block font-serif italic text-6xl md:text-8xl lg:text-[10rem] text-cream">
-            {PROFILE.heroNoun}.
+            {PROFILE.heroNoun}
           </span>
         </h1>
         <p className="hero-desc mt-8 font-mono text-cream/70 max-w-xl text-lg md:text-xl space-y-1">
@@ -221,7 +221,7 @@ const TypewriterCard = () => {
         </div>
       </div>
       <div className="mt-auto pt-8 border-t border-cream/10">
-        <p className="font-serif italic text-lg text-cream/70">Hands-on experience in specialized animal care.</p>
+        <p className="font-serif italic text-lg text-cream/70">Hands-on experience in specialized animal care</p>
       </div>
     </div>
   );
@@ -310,12 +310,12 @@ const Philosophy = () => {
         <p className="font-mono text-sm md:text-base text-clay uppercase tracking-widest mb-8">The Manifesto</p>
         <p className="font-sans text-3xl md:text-5xl leading-relaxed text-cream/70 mb-8">
           Standard approaches rely on <br />
-          <span className="text-cream font-serif italic text-5xl md:text-7xl">routine transaction</span>.
+          <span className="text-cream font-serif italic text-5xl md:text-7xl">routine transaction</span>
         </p>
         <p className="font-sans text-3xl md:text-5xl leading-tight">
           My work focuses on: <br />
           <span className="font-serif italic text-6xl md:text-8xl lg:text-9xl text-clay block mt-4">
-            {PROFILE.manifesto}.
+            {PROFILE.manifesto}
           </span>
         </p>
       </div>
@@ -392,14 +392,14 @@ const Dossier = () => {
       <div className="max-w-screen-2xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-end border-b border-cream/10 pb-16 mb-16">
           <div>
-            <h2 className="font-serif italic text-6xl md:text-8xl text-cream mb-6">The Dossier.</h2>
+            <h2 className="font-serif italic text-6xl md:text-8xl text-cream mb-6">The Dossier</h2>
             <div className="flex items-center gap-4">
               <div className="relative flex h-4 w-4">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-clay opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-4 w-4 bg-clay"></span>
               </div>
               <p className="font-mono text-sm text-cream/70 uppercase tracking-widest">
-                Currently open to Summer Clinical roles working with large animals or in a mixed animal practice.
+                Currently open to Summer Clinical roles working with large animals or in a mixed animal practice
               </p>
             </div>
           </div>
