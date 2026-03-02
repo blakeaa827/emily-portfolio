@@ -399,7 +399,7 @@ const Dossier = () => {
                 <span className="relative inline-flex rounded-full h-4 w-4 bg-clay"></span>
               </div>
               <p className="font-mono text-sm text-cream/70 uppercase tracking-widest">
-                Currently open to Summer Clinical roles
+                Currently open to Summer Clinical roles working with large animals or in a mixed animal practice.
               </p>
             </div>
           </div>
